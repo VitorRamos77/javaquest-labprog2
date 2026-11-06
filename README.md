@@ -13,8 +13,8 @@ Sem o servidor, abrindo o `index.html` direto, as fases de HTML/CSS/JS e SQL con
 
 ## Para os colegas: baixar e rodar
 ```bash
-git clone <URL-deste-repositório>
-cd <pasta-do-repositório>
+git clone https://github.com/VitorRamos77/javaquest-labprog2.git
+cd javaquest-labprog2
 java JavaQuest.java
 ```
 Ou baixe o ZIP pelo botão **Code → Download ZIP** no GitHub, extraia e dê dois cliques em `iniciar.bat`.
