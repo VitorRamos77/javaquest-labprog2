@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JavaQuest — Treino de Lab Prog II</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="brand" id="btnHome" title="Voltar ao mapa">
+      <span class="brand-logo">☕</span>
+      <span class="brand-name">Java<b>Quest</b></span>
+      <span class="brand-sub">Lab Prog II</span>
+    </button>
+    <div class="top-stats" id="topStats"></div>
+    <button class="btn btn-cola" id="btnCola" title="Abrir/fechar a cola (Alt+C)">📋 Cola</button>
+  </header>
+
+  <main id="app"></main>
+
+  <!-- Gaveta retrátil da cola -->
+  <aside class="cola" id="cola" aria-hidden="true">
+    <button class="cola-handle" id="colaHandle" title="Cola (Alt+C)">
+      <span>📋 COLA</span>
+    </button>
+    <div class="cola-inner">
+      <div class="cola-head">
+        <div class="cola-title">
+          <h2>📋 Cola rápida</h2>
+          <button class="icon-btn" id="colaClose" title="Fechar (Esc)">✕</button>
+        </div>
+        <input type="search" id="colaSearch" placeholder="Buscar comando… ex: substring, @GetMapping, flex">
+        <div class="chips" id="colaChips"></div>
+      </div>
+      <div class="cola-body" id="colaBody"></div>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/highlight.js"></script>
+  <script src="data/fases-java.js"></script>
+  <script src="data/fases-web.js"></script>
+  <script src="data/fases-projeto.js"></script>
+  <script src="data/cola.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

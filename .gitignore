@@ -1,0 +1,10 @@
+# Compilados
+*.class
+
+# Arquivos locais de ferramentas/IDEs
+.claude/
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
