@@ -19,7 +19,7 @@
   PHASES.forEach((p) => { if (['html', 'css', 'js'].includes(p.kind)) p.track = 'front'; });
   const TRACKS = [
     { id: 'java', title: 'Trilha 1 · Java', desc: 'Da primeira linha de código à orientação a objetos, coleções, arquivos e generics.', order: PHASES.filter((p) => p.track === 'java').map((p) => p.id) },
-    { id: 'web', title: 'Trilha 2 · Java Web', desc: 'APIs com Spring Boot, SQL e CRUD com JPA/Hibernate.', order: ['s01', 's02', 's03', 'q01', 's04'] },
+    { id: 'web', title: 'Trilha 2 · Java Web', desc: 'APIs REST com Spring Boot (@RestController, métodos HTTP, filtros, ResponseEntity, @RequestBody), SQL e CRUD com JPA/Hibernate.', order: ['s01', 's02', 's03', 's05', 's06', 's07', 's08', 's09', 's10', 'q01', 's04'] },
     { id: 'front', title: 'Trilha 3 · Front-end', desc: 'HTML5, CSS3 e JavaScript: as páginas que conversam com sua API.', order: PHASES.filter((p) => p.track === 'front').map((p) => p.id) },
     { id: 'projeto', title: 'Trilha 4 · Projeto Spring: Sistema de Biblioteca', desc: 'Um projeto maior organizado em pacotes (model, repository, service, controller, dto…), com package e import entre pastas. Cada fase evolui o mesmo sistema. Recomendado depois da Trilha 2.', order: PHASES.filter((p) => p.track === 'projeto').map((p) => p.id) },
   ];
@@ -554,7 +554,8 @@
       let payload;
       if (p.kind === 'spring') {
         const reqs = ($app.querySelector('#reqs').value || '').split('\n').filter((l) => l.trim());
-        payload = { files: filesMap(), main: 'SpringConsole', args: reqs, stdin: '' };
+        // as requisições vão pela entrada padrão: no Windows, aspas dentro de argumentos são removidas
+        payload = { files: filesMap(), main: 'SpringConsole', args: [], stdin: reqs.join('\n') + '\n' };
       } else {
         payload = { files: filesMap(), main: p.run.main, stdin: ($app.querySelector('#stdin') || {}).value || '', extraFiles: p.extraFiles || {} };
       }

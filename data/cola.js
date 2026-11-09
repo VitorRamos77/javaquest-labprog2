@@ -404,6 +404,60 @@ public HashMap<String, Integer> fat(@PathVariable("number") Integer n) {
     r.put("fatNumber", fatorial(n));
     return r;   // {"number": 5, "fatNumber": 120}
 }` },
+    { t: 'CRUD completo num controller', c: `@RestController
+@RequestMapping("/tarefas")
+public class TarefaController {
+    @GetMapping                    // GET    /tarefas
+    public List<Tarefa> listar() { ... }
+
+    @GetMapping("/{id}")           // GET    /tarefas/1
+    public Tarefa porId(@PathVariable("id") Integer id) { ... }
+
+    @PostMapping                   // POST   /tarefas   (titulo=...)
+    public Tarefa criar(@RequestParam String titulo) { ... }
+
+    @PutMapping("/{id}")           // PUT    /tarefas/1 (substitui)
+    public Tarefa atualizar(@PathVariable("id") Integer id, @RequestParam String titulo) { ... }
+
+    @PatchMapping("/{id}/concluir")// PATCH  /tarefas/1/concluir (parcial)
+    public Tarefa concluir(@PathVariable("id") Integer id) { ... }
+
+    @DeleteMapping("/{id}")        // DELETE /tarefas/1
+    public boolean apagar(@PathVariable("id") Integer id) { ... }
+}` },
+    { t: '@RequestParam opcional', c: `@GetMapping("/produtos")       // /produtos?categoria=x&ordem=preco
+public List<Produto> listar(
+        @RequestParam(required = false) String categoria,   // ausente = null
+        @RequestParam(required = false) Double precoMax,    // use Double, não double
+        @RequestParam(defaultValue = "nome") String ordem) { ... }` },
+    { t: 'Várias @PathVariable', c: `@GetMapping("/turmas/{turma}/alunos/{nome}/media")
+public HashMap<String, Object> media(@PathVariable("turma") String turma,
+                                     @PathVariable("nome") String nome) { ... }` },
+    { t: 'ResponseEntity e status HTTP', c: `import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+return ResponseEntity.ok(obj);                                  // 200
+return ResponseEntity.status(HttpStatus.CREATED).body(obj);     // 201
+return ResponseEntity.noContent().build();                      // 204 sem corpo
+return ResponseEntity.badRequest().body("Nome é obrigatório");  // 400
+return ResponseEntity.notFound().build();                       // 404 sem corpo
+return ResponseEntity.status(HttpStatus.CONFLICT).body(obj);    // 409
+
+// tipo de retorno: ResponseEntity<Contato>, ResponseEntity<Void> (sem corpo)
+// ou ResponseEntity<Object> quando pode voltar objeto OU mensagem` },
+    { t: '@RequestBody (JSON no corpo)', c: `// POST /pedidos   corpo: {"cliente":"Ana","itens":[{"produto":"Caneta","quantidade":3}]}
+@PostMapping("/pedidos")
+public ResponseEntity<Object> criar(@RequestBody Pedido pedido) {
+    pedido.getCliente();   // "Ana"
+    pedido.getItens();     // List<ItemPedido> já preenchida
+    ...
+}
+// Pedido precisa de construtor vazio + getters/setters
+// JSON simples também pode virar Map:
+public ResponseEntity<Object> criar(@RequestBody Map<String, String> corpo) {
+    String url = corpo.get("url");
+}` },
+    { t: 'Códigos de status mais usados', d: '**200** OK · **201** Created (criou) · **204** No Content (apagou) · **400** Bad Request (dados inválidos) · **404** Not Found · **405** Method Not Allowed · **409** Conflict (já existe) · **500** erro no servidor' },
     { t: 'Executar', c: `$ ./gradlew bootRun
 $ ./gradlew bootRun --args='--server.port=8090'
 # build.gradle:  bootRun { args = ['--server.port=8090'] }`, lang: 'sh' },

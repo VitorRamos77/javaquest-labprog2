@@ -166,6 +166,10 @@ public class MiniSpring {
     public static Response post(String url, Map<String, String> params) { return request("POST", url, params); }
     public static Response put(String url, Map<String, String> params) { return request("PUT", url, params); }
     public static Response patch(String url, Map<String, String> params) { return request("PATCH", url, params); }
+    public static Response patch(String url) { return request("PATCH", url, Map.of()); }
+    /** Envia um corpo JSON (para @RequestBody). */
+    public static Response postJson(String url, String json) { return request("POST", url, Map.of(), json); }
+    public static Response putJson(String url, String json) { return request("PUT", url, Map.of(), json); }
 
     /** Monta um mapa de parâmetros: params("username", "ana", "email", "a@b.com") */
     public static Map<String, String> params(String... kv) {
@@ -175,6 +179,10 @@ public class MiniSpring {
     }
 
     public static Response request(String httpMethod, String url, Map<String, String> params) {
+        return request(httpMethod, url, params, null);
+    }
+
+    public static Response request(String httpMethod, String url, Map<String, String> params, String jsonBody) {
         start();
         Map<String, String> all = new LinkedHashMap<>();
         String path = url;
@@ -199,10 +207,14 @@ public class MiniSpring {
             pathExists = true;
             if (!r.httpMethod.equals("*") && !r.httpMethod.equals(httpMethod)) continue;
             Object[] args;
-            try { args = bind(r.method, vars, all); }
+            try { args = bind(r.method, vars, all, jsonBody); }
             catch (QT.Fail e) { return new Response(400, e.getMessage(), json(e.getMessage())); }
             try {
                 Object body = r.method.invoke(r.controller, args);
+                if (body instanceof org.springframework.http.ResponseEntity) {
+                    org.springframework.http.ResponseEntity<?> re = (org.springframework.http.ResponseEntity<?>) body;
+                    return new Response(re.getStatusCodeValue(), re.getBody(), re.getBody() == null ? "" : json(re.getBody()));
+                }
                 return new Response(200, body, json(body));
             } catch (InvocationTargetException e) {
                 Throwable t = e.getCause();
@@ -228,7 +240,7 @@ public class MiniSpring {
         return vars;
     }
 
-    static Object[] bind(Method m, Map<String, String> vars, Map<String, String> params) {
+    static Object[] bind(Method m, Map<String, String> vars, Map<String, String> params, String jsonBody) {
         Parameter[] ps = m.getParameters();
         Object[] args = new Object[ps.length];
         for (int i = 0; i < ps.length; i++) {
@@ -245,13 +257,127 @@ public class MiniSpring {
                 raw = params.get(name);
                 if (raw == null && !rp.defaultValue().equals("__NONE__")) raw = rp.defaultValue();
                 if (raw == null && rp.required()) throw new QT.Fail("400 Bad Request — parâmetro obrigatório \"" + name + "\" ausente");
+            } else if (p.isAnnotationPresent(RequestBody.class)) {
+                if (jsonBody == null || jsonBody.isBlank()) throw new QT.Fail("400 Bad Request — o método espera um corpo JSON (@RequestBody), mas nenhum foi enviado");
+                Object parsed;
+                try { parsed = new JsonIn(jsonBody).parse(); }
+                catch (RuntimeException e) { throw new QT.Fail("400 Bad Request — JSON inválido: " + e.getMessage()); }
+                args[i] = fromJson(parsed, p.getType(), p.getParameterizedType());
+                continue;
             } else {
-                throw new QT.Fail("O parâmetro \"" + p.getName() + "\" de " + m.getName() + " precisa de @PathVariable ou @RequestParam.");
+                throw new QT.Fail("O parâmetro \"" + p.getName() + "\" de " + m.getName() + " precisa de @PathVariable, @RequestParam ou @RequestBody.");
             }
             try { args[i] = conv(raw, p.getType()); }
             catch (NumberFormatException e) { throw new QT.Fail("400 Bad Request — \"" + raw + "\" não é um " + p.getType().getSimpleName()); }
         }
         return args;
+    }
+
+    /* ------------------------------------------------------------ JSON de entrada (@RequestBody) */
+    static class JsonIn {
+        final String s; int i = 0;
+        JsonIn(String s) { this.s = s.trim(); }
+        Object parse() { Object v = val(); ws(); if (i < s.length()) throw new RuntimeException("texto extra na posição " + i); return v; }
+        void ws() { while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++; }
+        char peek() { ws(); if (i >= s.length()) throw new RuntimeException("fim inesperado"); return s.charAt(i); }
+        void expect(char c) { if (peek() != c) throw new RuntimeException("esperava '" + c + "' na posição " + i); i++; }
+        Object val() {
+            char c = peek();
+            if (c == '{') {
+                i++; Map<String, Object> m = new LinkedHashMap<>();
+                if (peek() == '}') { i++; return m; }
+                while (true) {
+                    String k = str(); expect(':'); m.put(k, val());
+                    char d = peek(); i++;
+                    if (d == '}') return m;
+                    if (d != ',') throw new RuntimeException("esperava ',' ou '}'");
+                }
+            }
+            if (c == '[') {
+                i++; List<Object> l = new ArrayList<>();
+                if (peek() == ']') { i++; return l; }
+                while (true) {
+                    l.add(val());
+                    char d = peek(); i++;
+                    if (d == ']') return l;
+                    if (d != ',') throw new RuntimeException("esperava ',' ou ']'");
+                }
+            }
+            if (c == '"') return str();
+            if (s.startsWith("true", i)) { i += 4; return true; }
+            if (s.startsWith("false", i)) { i += 5; return false; }
+            if (s.startsWith("null", i)) { i += 4; return null; }
+            int st = i;
+            while (i < s.length() && "+-0123456789.eE".indexOf(s.charAt(i)) >= 0) i++;
+            if (st == i) throw new RuntimeException("valor inválido na posição " + i);
+            String n = s.substring(st, i);
+            return n.contains(".") || n.contains("e") || n.contains("E") ? (Object) Double.parseDouble(n) : (Object) Long.parseLong(n);
+        }
+        String str() {
+            expect('"');
+            StringBuilder b = new StringBuilder();
+            while (true) {
+                char c = s.charAt(i++);
+                if (c == '"') return b.toString();
+                if (c == '\\') {
+                    char e = s.charAt(i++);
+                    if (e == 'n') b.append('\n');
+                    else if (e == 't') b.append('\t');
+                    else if (e == 'u') { b.append((char) Integer.parseInt(s.substring(i, i + 4), 16)); i += 4; }
+                    else b.append(e);
+                } else b.append(c);
+            }
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    static Object fromJson(Object v, Class<?> t, Type gt) {
+        if (v == null) return t.isPrimitive() ? conv(null, t) : null;
+        if (t == Object.class || Map.class.isAssignableFrom(t)) return v;
+        if (t == String.class) return String.valueOf(v);
+        if (v instanceof Number) {
+            Number n = (Number) v;
+            if (t == int.class || t == Integer.class) return n.intValue();
+            if (t == long.class || t == Long.class) return n.longValue();
+            if (t == double.class || t == Double.class) return n.doubleValue();
+            if (t == float.class || t == Float.class) return n.floatValue();
+        }
+        if ((t == boolean.class || t == Boolean.class) && v instanceof Boolean) return v;
+        if (t.isEnum() && v instanceof String) return Enum.valueOf((Class) t, (String) v);
+        if (v instanceof String) {
+            try { return conv((String) v, t); }
+            catch (NumberFormatException e) { throw new QT.Fail("400 Bad Request — \"" + v + "\" não é " + t.getSimpleName()); }
+        }
+        if (Collection.class.isAssignableFrom(t) && v instanceof List) {
+            Class<?> et = Object.class;
+            if (gt instanceof ParameterizedType && ((ParameterizedType) gt).getActualTypeArguments()[0] instanceof Class)
+                et = (Class<?>) ((ParameterizedType) gt).getActualTypeArguments()[0];
+            Collection c = Set.class.isAssignableFrom(t) ? new LinkedHashSet() : new ArrayList();
+            for (Object x : (List<?>) v) c.add(fromJson(x, et, et));
+            return c;
+        }
+        if (v instanceof Map) {
+            Object o;
+            try {
+                Constructor<?> k = t.getDeclaredConstructor();
+                k.setAccessible(true);
+                o = k.newInstance();
+            } catch (NoSuchMethodException e) {
+                throw new QT.Fail("Para receber " + t.getSimpleName() + " com @RequestBody, a classe precisa de um construtor vazio (sem parâmetros).");
+            } catch (ReflectiveOperationException e) {
+                throw new QT.Fail("Não consegui criar " + t.getSimpleName() + ": " + e);
+            }
+            for (Map.Entry<String, Object> e : ((Map<String, Object>) v).entrySet()) {
+                Field f = null;
+                for (Class<?> k = t; k != null && k != Object.class && f == null; k = k.getSuperclass())
+                    try { f = k.getDeclaredField(e.getKey()); } catch (NoSuchFieldException ignored) { }
+                if (f == null || Modifier.isStatic(f.getModifiers())) continue; // campo desconhecido é ignorado
+                try { f.setAccessible(true); f.set(o, fromJson(e.getValue(), f.getType(), f.getGenericType())); }
+                catch (IllegalAccessException x) { throw new RuntimeException(x); }
+            }
+            return o;
+        }
+        throw new QT.Fail("400 Bad Request — não sei converter " + v + " em " + t.getSimpleName());
     }
 
     static Object conv(String raw, Class<?> t) {

@@ -23,12 +23,15 @@ Seu progresso e seu código ficam salvos só no seu navegador.
 > Material de estudo feito por alunos com base nas aulas de Laboratório de Programação II.
 > Não é material oficial da disciplina.
 
-## Trilhas (38 fases)
+## Trilhas (44 fases)
 - **Java (20):** Olá Mundo, Scanner, if/else, laços, fatorial, Fibonacci com memoização, Strings,
   arrays, ArrayList, HashMap, HashSet, classes (Product/ShoppingCart), herança, interfaces, generics,
   arquivos e CSV.
-- **Java Web (5):** APIs Spring Boot (`@RestController`, `@GetMapping`, `@PathVariable`, `@RequestParam`),
-  `ApiResponse<T>`, SQL (CRUD) e CRUD com JPA/Hibernate (`@Entity`, `CrudRepository`, `@Autowired`).
+- **Java Web (11):** APIs Spring Boot com `@RestController` a fundo: `@GetMapping`/`@PostMapping`/`@PutMapping`/
+  `@PatchMapping`/`@DeleteMapping`, `@PathVariable` (inclusive rotas aninhadas), `@RequestParam` opcional
+  (`required = false`, `defaultValue`), `ResponseEntity` com status HTTP (200/201/204/400/404/409),
+  `@RequestBody` com JSON, `ApiResponse<T>`, um desafio (encurtador de links), SQL (CRUD) e CRUD com
+  JPA/Hibernate (`@Entity`, `CrudRepository`, `@Autowired`).
   O Spring e o banco são **simulados** (runtime/MiniSpring.java), então não precisa de Gradle nem MySQL.
 - **Front-end (8):** página HTML, formulário, seletores/box model, flexbox, Fibonacci em JS, eventos/DOM,
   carrinho de compras e validação de CPF.
@@ -47,5 +50,5 @@ Seu progresso e seu código ficam salvos só no seu navegador.
 ## Estrutura
 - `JavaQuest.java` — servidor (arquivos estáticos + compila/executa Java)
 - `runtime/` — `QT.java` (biblioteca de testes), `MiniSpring.java` (Spring/JPA simulado) e stubs das anotações
-- `data/fases-java.js`, `data/fases-web.js`, `data/fases-projeto.js` — as fases (enunciado, código inicial, testes e solução)
+- `data/fases-java.js`, `data/fases-web.js`, `data/fases-rest.js`, `data/fases-projeto.js` — as fases (enunciado, código inicial, testes e solução)
 - `data/cola.js` — conteúdo da cola

@@ -90,6 +90,15 @@ public class QT {
         throw new Fail("Esperava que lançasse " + exNames.replace("|", " ou ") + ", mas nenhuma exceção foi lançada.");
     }
 
+    /** Extrai um getter de cada elemento: QT.pluck(lista, "getNome") → ["Caneta", "Mouse"] */
+    public static List<Object> pluck(Object iterable, String getter) throws Throwable {
+        if (iterable == null) throw new Fail("A resposta foi null (esperava uma lista).");
+        if (!(iterable instanceof Iterable)) throw new Fail("Esperava uma lista, mas a resposta foi " + show(iterable));
+        List<Object> r = new ArrayList<>();
+        for (Object o : (Iterable<?>) iterable) r.add(callM(o, getter));
+        return r;
+    }
+
     /** Verifica se a classe está no pacote certo e é public. */
     public static void inPackage(String fqn) {
         Class<?> c;
