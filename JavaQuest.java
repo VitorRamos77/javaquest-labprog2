@@ -20,7 +20,7 @@ import java.util.concurrent.*;
 import java.util.stream.*;
 
 public class JavaQuest {
-    static final int PORT = Integer.parseInt(System.getProperty("port", "5517"));
+    static int PORT = Integer.parseInt(System.getProperty("port", "5517"));
     static final int TIMEOUT_MS = 10_000;
     static final int MAX_OUT = 200_000;
     static Path BASE;
@@ -45,7 +45,7 @@ public class JavaQuest {
 
         compileRuntime();
 
-        HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), PORT), 0);
+        HttpServer server = openServer();
         server.createContext("/api/token", JavaQuest::handleToken);
         server.createContext("/api/run", JavaQuest::handleRun);
         server.createContext("/", JavaQuest::handleStatic);
@@ -59,6 +59,49 @@ public class JavaQuest {
         try {
             if (java.awt.Desktop.isDesktopSupported()) java.awt.Desktop.getDesktop().browse(new URI(url));
         } catch (Throwable ignored) { }
+    }
+
+    /** Abre o servidor na porta padrão; se estiver ocupada, explica o motivo e usa a próxima porta livre. */
+    static HttpServer openServer() throws IOException {
+        int wanted = PORT;
+        for (int p = wanted; p < wanted + 10; p++) {
+            try {
+                HttpServer s = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), p), 0);
+                if (p != wanted) {
+                    System.out.println("  → Usando a porta " + p + " no lugar da " + wanted + ".");
+                    System.out.println("    (O progresso salvo no navegador é separado por porta: ao voltar a usar a " + wanted + ", ele reaparece.)");
+                    System.out.println();
+                }
+                PORT = p;
+                return s;
+            } catch (BindException e) {
+                if (p == wanted) {
+                    System.out.println();
+                    if (isJavaQuest(wanted)) {
+                        System.out.println("⚠ Já existe um JavaQuest aberto na porta " + wanted + ".");
+                        System.out.println("  Provavelmente é outra janela do iniciar.bat / terminal — talvez com uma versão antiga.");
+                        System.out.println("  Feche aquela janela (ou pressione Ctrl+C nela) e rode este de novo para usar a porta " + wanted + ".");
+                    } else {
+                        System.out.println("⚠ A porta " + wanted + " está sendo usada por outro programa.");
+                    }
+                }
+            }
+        }
+        throw new IOException("Nenhuma porta livre entre " + wanted + " e " + (wanted + 9) + ". Feche outros servidores ou use: java -Dport=NUMERO JavaQuest.java");
+    }
+
+    /** Verifica se quem está na porta é um JavaQuest (responde em /api/token). */
+    static boolean isJavaQuest(int port) {
+        try {
+            HttpURLConnection c = (HttpURLConnection) URI.create("http://127.0.0.1:" + port + "/api/token").toURL().openConnection();
+            c.setConnectTimeout(1500);
+            c.setReadTimeout(1500);
+            if (c.getResponseCode() != 200) return false;
+            String body = new String(c.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            return body.contains("\"token\"");
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     static boolean isWindows() { return System.getProperty("os.name").toLowerCase().contains("win"); }
@@ -96,6 +139,7 @@ public class JavaQuest {
     }
 
     /* ---------- /api/run ---------- */
+    @SuppressWarnings("unchecked")
     static void handleRun(HttpExchange ex) throws IOException {
         if (!"POST".equals(ex.getRequestMethod()) || !sameOrigin(ex)
                 || !TOKEN.equals(ex.getRequestHeaders().getFirst("X-JQ-Token"))) {

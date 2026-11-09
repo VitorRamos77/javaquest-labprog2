@@ -104,7 +104,7 @@
       <pre class="code"><code>java JavaQuest.java</code></pre>Depois acesse <code>http://localhost:5517</code>. (Requer JDK 17+.)</div>`;
     }
     S.exams = S.exams || {};
-    html += `<div class="track-head"><div><h2>📝 Simulados de Prova</h2><p>No formato da P1: cenário, classe modelo, "banco" pronto e endpoints, valendo <b>10 pontos</b> em <b>50 minutos</b>. Cada item só pontua se todos os seus testes passarem. Entregue para ver a nota e liberar o gabarito.</p></div></div><div class="path exams">`;
+    html += `<div class="track-head"><div><h2>📝 Simulados de Prova</h2><p>No formato da P1: cenário, classe modelo, "banco" pronto e endpoints, valendo <b>10 pontos</b>. Sem limite de tempo — se quiser treinar como na prova, ative o cronômetro de 50 min dentro do simulado. Cada item só pontua se todos os seus testes passarem. Entregue para ver a nota e liberar o gabarito.</p></div></div><div class="path exams">`;
     EXAMS.forEach((p) => {
       const e = S.exams[p.id] || {};
       const running = e.start && !e.delivered;
@@ -112,7 +112,7 @@
         <span class="ph-icon">${p.icon}</span>
         <span class="ph-title">${esc(p.title)}</span>
         <span class="ph-sub">${esc(p.subtitle)}</span>
-        <span class="ph-foot"><span class="kind kind-${p.kind}">${KIND_LABEL[p.kind]}</span><span class="muted small">⏱ ${p.exam.duracao} min · 10 pts</span></span>
+        <span class="ph-foot"><span class="kind kind-${p.kind}">${KIND_LABEL[p.kind]}</span><span class="muted small">10 pts${S.examTimer ? ' · ⏱ ' + p.exam.duracao + ' min' : ''}</span></span>
         ${e.best != null ? '<span class="nota-badge ' + notaClass(e.best) + '">' + fmtNota(e.best) + '</span>' : running ? '<span class="ph-badge">em andamento</span>' : ''}
       </button>`;
     });
@@ -348,7 +348,7 @@
           <div class="ed-actions">
             <button class="btn btn-ghost btn-sm" id="resetBtn" title="Voltar ao código inicial">↺</button>
             ${p.kind === 'java' || p.kind === 'spring' || p.kind === 'sql' ? '<button class="btn btn-run btn-sm" id="runBtn" title="Ctrl+\'">▶ Executar</button>' : ''}
-            ${exam ? '<span class="timer" id="timer">⏱ --:--</span>' : ''}
+            ${exam ? '<button class="timer" id="timer" title="Ligar/desligar o cronômetro">⏱</button>' : ''}
             <button class="btn btn-primary btn-sm" id="testBtn" title="Ctrl+Enter">✔ Testar <kbd>Ctrl+Enter</kbd></button>
             ${exam ? '<button class="btn btn-deliver btn-sm" id="deliverBtn" title="Corrige e dá a nota">📤 Entregar</button>' : ''}
           </div>
@@ -685,7 +685,7 @@
     return `<div class="ws-scroll prova">
       <div class="prova-head">
         <div><b>Laboratório de Programação — Simulado</b><small>Treino no formato da P1 · Java</small></div>
-        <div class="prova-meta"><span>Duração: <b>${x.duracao} min</b></span><span>Valor: <b>${fmtNota(total)}</b></span><span>Consulta: <b>restrita</b> <small class="muted">(aqui a cola está liberada para treino)</small></span></div>
+        <div class="prova-meta"><span>Duração: <b>${x.duracao} min</b> <small class="muted">(cronômetro opcional — botão ⏱ no topo do editor)</small></span><span>Valor: <b>${fmtNota(total)}</b></span><span>Consulta: <b>restrita</b> <small class="muted">(aqui a cola está liberada para treino)</small></span></div>
       </div>
       <div class="prova-txt">${fmt(x.cenario)}</div>
       <h3>Atributos obrigatórios da classe <code>${esc(x.classe)}</code></h3>
@@ -715,16 +715,32 @@
     const gb = $app.querySelector('#gabBtn');
     gb.addEventListener('click', () => { Workspace.sawSolution = true; showSolution(true); });
     $app.querySelector('#restartBtn').addEventListener('click', () => {
-      if (!confirm('Recomeçar a prova? O cronômetro volta para ' + p.exam.duracao + ':00 e o código volta ao inicial.')) return;
+      if (!confirm('Recomeçar a prova? O código volta ao inicial' + (S.examTimer ? ' e o cronômetro volta para ' + p.exam.duracao + ':00' : '') + '.')) return;
       localStorage.removeItem(codeKey(p.id));
       e.start = null; save();
       openPhase(p.id);
+    });
+    $app.querySelector('#timer').addEventListener('click', () => {
+      const st = examState(p.id);
+      if (!S.examTimer) {
+        if (!confirm('Ativar o cronômetro de ' + p.exam.duracao + ' minutos?\n\nA contagem começa agora e, quando o tempo acabar, a prova é entregue automaticamente.')) return;
+        S.examTimer = true;
+        if (!st.delivered) { st.start = Date.now(); st.autoDelivered = false; }
+        toast('⏱ Cronômetro ligado: ' + p.exam.duracao + ' minutos. Boa prova!');
+      } else {
+        if (!confirm('Desligar o cronômetro? Você poderá fazer a prova sem limite de tempo.')) return;
+        S.examTimer = false;
+        toast('Cronômetro desligado.');
+      }
+      save();
+      tick();
     });
     const tick = () => {
       const el = $app.querySelector('#timer');
       if (!el) return;
       const st = examState(p.id);
       if (st.delivered) { el.textContent = '✔ entregue'; el.className = 'timer done'; return; }
+      if (!S.examTimer) { el.textContent = '⏱ Sem tempo'; el.className = 'timer off'; return; }
       const left = p.exam.duracao * 60 * 1000 - (Date.now() - st.start);
       const abs = Math.abs(left);
       const mm = Math.floor(abs / 60000), ss = Math.floor((abs % 60000) / 1000);
@@ -784,7 +800,7 @@
     if (gb) { gb.disabled = false; gb.title = ''; }
     const foot = $app.querySelector('.prova-foot > span');
     if (foot) foot.innerHTML = 'Melhor nota: <b class="' + notaClass(e.best) + '">' + fmtNota(e.best) + '</b> · tentativas: ' + e.tries;
-    toast('📤 Prova entregue: nota ' + fmtNota(nota) + (usedMin ? ' em ' + usedMin + ' min' : ''), 4000);
+    toast('📤 Prova entregue: nota ' + fmtNota(nota) + (S.examTimer && usedMin ? ' em ' + usedMin + ' min' : ''), 4000);
     if (nota >= 10) confetti();
     Workspace.deliver = false;
   }

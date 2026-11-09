@@ -1,5 +1,5 @@
 @echo off
 cd /d "%~dp0"
-echo Iniciando JavaQuest em http://localhost:5517 ...
+echo Iniciando JavaQuest...
 java JavaQuest.java
 pause

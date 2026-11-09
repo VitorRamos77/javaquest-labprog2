@@ -24,10 +24,10 @@ Seu progresso e seu código ficam salvos só no seu navegador.
 > Não é material oficial da disciplina.
 
 ## Simulados de prova (4)
-No formato da P1 (cenário, classe modelo, "banco" mockado e endpoints, **10 pontos em 50 minutos**, itens a–g):
+No formato da P1 (cenário, classe modelo, "banco" mockado e endpoints, **10 pontos**, itens a–g):
 **Painel de Voos** (a P1 de Python reescrita em Java/Spring), **Cinema**, **Estacionamento** e **Controle de Notas** (Java puro).
-Cronômetro, botão **Entregar** com nota por item (o item só pontua se todos os seus testes passarem),
-entrega automática quando o tempo acaba, histórico da melhor nota e gabarito liberado após a entrega.
+Sem limite de tempo por padrão (cronômetro de 50 min opcional, com entrega automática), botão **Entregar** com nota por item (o item só pontua se todos os seus testes passarem),
+histórico da melhor nota e gabarito liberado após a entrega.
 
 ## Trilhas (44 fases)
 - **Java (20):** Olá Mundo, Scanner, if/else, laços, fatorial, Fibonacci com memoização, Strings,
