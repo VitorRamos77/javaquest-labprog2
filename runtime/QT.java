@@ -91,11 +91,11 @@ public class QT {
     }
 
     /** Extrai um getter de cada elemento: QT.pluck(lista, "getNome") → ["Caneta", "Mouse"] */
-    public static List<Object> pluck(Object iterable, String getter) throws Throwable {
+    public static List<Object> pluck(Object iterable, String getter, Object... args) throws Throwable {
         if (iterable == null) throw new Fail("A resposta foi null (esperava uma lista).");
         if (!(iterable instanceof Iterable)) throw new Fail("Esperava uma lista, mas a resposta foi " + show(iterable));
         List<Object> r = new ArrayList<>();
-        for (Object o : (Iterable<?>) iterable) r.add(callM(o, getter));
+        for (Object o : (Iterable<?>) iterable) r.add(callM(o, getter, args));
         return r;
     }
 

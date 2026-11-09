@@ -23,6 +23,12 @@ Seu progresso e seu código ficam salvos só no seu navegador.
 > Material de estudo feito por alunos com base nas aulas de Laboratório de Programação II.
 > Não é material oficial da disciplina.
 
+## Simulados de prova (4)
+No formato da P1 (cenário, classe modelo, "banco" mockado e endpoints, **10 pontos em 50 minutos**, itens a–g):
+**Painel de Voos** (a P1 de Python reescrita em Java/Spring), **Cinema**, **Estacionamento** e **Controle de Notas** (Java puro).
+Cronômetro, botão **Entregar** com nota por item (o item só pontua se todos os seus testes passarem),
+entrega automática quando o tempo acaba, histórico da melhor nota e gabarito liberado após a entrega.
+
 ## Trilhas (44 fases)
 - **Java (20):** Olá Mundo, Scanner, if/else, laços, fatorial, Fibonacci com memoização, Strings,
   arrays, ArrayList, HashMap, HashSet, classes (Product/ShoppingCart), herança, interfaces, generics,
@@ -50,5 +56,5 @@ Seu progresso e seu código ficam salvos só no seu navegador.
 ## Estrutura
 - `JavaQuest.java` — servidor (arquivos estáticos + compila/executa Java)
 - `runtime/` — `QT.java` (biblioteca de testes), `MiniSpring.java` (Spring/JPA simulado) e stubs das anotações
-- `data/fases-java.js`, `data/fases-web.js`, `data/fases-rest.js`, `data/fases-projeto.js` — as fases (enunciado, código inicial, testes e solução)
+- `data/fases-java.js`, `data/fases-web.js`, `data/fases-rest.js`, `data/fases-projeto.js`, `data/simulados.js` — as fases (enunciado, código inicial, testes e solução)
 - `data/cola.js` — conteúdo da cola

@@ -24,6 +24,8 @@
     { id: 'projeto', title: 'Trilha 4 · Projeto Spring: Sistema de Biblioteca', desc: 'Um projeto maior organizado em pacotes (model, repository, service, controller, dto…), com package e import entre pastas. Cada fase evolui o mesmo sistema. Recomendado depois da Trilha 2.', order: PHASES.filter((p) => p.track === 'projeto').map((p) => p.id) },
   ];
   const byId = (id) => PHASES.find((p) => p.id === id);
+  const MAIN = PHASES.filter((p) => !p.exam);          // fases (sem os simulados)
+  const EXAMS = PHASES.filter((p) => p.exam);
   const trackOf = (p) => TRACKS.find((t) => t.order.includes(p.id));
   const nextOf = (p) => { const t = trackOf(p); const i = t.order.indexOf(p.id); return t.order[i + 1] ? byId(t.order[i + 1]) : null; };
   const isDone = (id) => !!(S.phases[id] && S.phases[id].done);
@@ -69,13 +71,13 @@
   };
 
   function renderTopStats() {
-    const done = PHASES.filter((p) => isDone(p.id)).length;
+    const done = MAIN.filter((p) => isDone(p.id)).length;
     const lv = Math.floor(S.xp / 300) + 1;
     document.getElementById('topStats').innerHTML =
       '<span class="stat" title="Status do servidor Java">' + (Server.online ? '<i class="dot on"></i> Java ' + esc(Server.version) : '<i class="dot"></i> Java offline') + '</span>' +
       '<span class="stat hide-sm">Nv <b>' + lv + '</b></span>' +
       '<span class="stat">⭐ <b>' + S.xp + '</b> XP</span>' +
-      '<span class="stat hide-sm">🏁 <b>' + done + '</b>/' + PHASES.length + '</span>';
+      '<span class="stat hide-sm">🏁 <b>' + done + '</b>/' + MAIN.length + '</span>';
   }
 
   /* =========================================================
@@ -85,15 +87,15 @@
     Workspace.dispose();
     Cola.setContext(null);
     renderTopStats();
-    const done = PHASES.filter((p) => isDone(p.id)).length;
+    const done = MAIN.filter((p) => isDone(p.id)).length;
     let html = '<section class="home">';
     html += `<div class="hero">
       <div>
         <h1>Aprenda <span class="grad">codando</span>.</h1>
         <p>Cada fase é um exercício de código com testes automáticos, baseado nas aulas de Lab Prog II.
         Escreva, execute, passe nos testes e libere a próxima. A <b>📋 Cola</b> fica sempre à direita (tecla <kbd>Alt</kbd>+<kbd>C</kbd>).</p>
-        <div class="hero-bar"><i style="width:${(done / PHASES.length) * 100}%"></i></div>
-        <small class="muted">${done} de ${PHASES.length} fases concluídas · ${S.xp} XP</small>
+        <div class="hero-bar"><i style="width:${(done / MAIN.length) * 100}%"></i></div>
+        <small class="muted">${done} de ${MAIN.length} fases concluídas · ${S.xp} XP</small>
       </div>
     </div>`;
     if (!Server.online) {
@@ -101,6 +103,20 @@
       mas para compilar e testar Java/Spring abra um terminal nesta pasta e rode:
       <pre class="code"><code>java JavaQuest.java</code></pre>Depois acesse <code>http://localhost:5517</code>. (Requer JDK 17+.)</div>`;
     }
+    S.exams = S.exams || {};
+    html += `<div class="track-head"><div><h2>📝 Simulados de Prova</h2><p>No formato da P1: cenário, classe modelo, "banco" pronto e endpoints, valendo <b>10 pontos</b> em <b>50 minutos</b>. Cada item só pontua se todos os seus testes passarem. Entregue para ver a nota e liberar o gabarito.</p></div></div><div class="path exams">`;
+    EXAMS.forEach((p) => {
+      const e = S.exams[p.id] || {};
+      const running = e.start && !e.delivered;
+      html += `<button class="phase exam-card ${e.best != null ? 'done' : ''}" data-phase="${p.id}">
+        <span class="ph-icon">${p.icon}</span>
+        <span class="ph-title">${esc(p.title)}</span>
+        <span class="ph-sub">${esc(p.subtitle)}</span>
+        <span class="ph-foot"><span class="kind kind-${p.kind}">${KIND_LABEL[p.kind]}</span><span class="muted small">⏱ ${p.exam.duracao} min · 10 pts</span></span>
+        ${e.best != null ? '<span class="nota-badge ' + notaClass(e.best) + '">' + fmtNota(e.best) + '</span>' : running ? '<span class="ph-badge">em andamento</span>' : ''}
+      </button>`;
+    });
+    html += '</div>';
     TRACKS.forEach((tr) => {
       const n = tr.order.filter(isDone).length;
       html += `<div class="track-head"><div><h2>${tr.title}</h2><p>${tr.desc}</p></div><span class="track-count">${n}/${tr.order.length}</span></div><div class="path">`;
@@ -249,6 +265,7 @@
     dispose() {
       if (this.msgListener) window.removeEventListener('message', this.msgListener);
       this.msgListener = null; this.p = null;
+      clearInterval(this.timer); this.timer = null;
     },
 
     load(p) {
@@ -287,8 +304,10 @@
     const st = S.phases[id];
     const needsJava = p.kind === 'java' || p.kind === 'spring';
     const web = ['html', 'css', 'js'].includes(p.kind);
-    const t = trackOf(p);
+    const t = trackOf(p) || { title: '· Simulado de prova', order: [id] };
     const idx = t.order.indexOf(id);
+    const exam = !!p.exam;
+    if (exam) startExamAttempt(p);
 
     const outTabs = [];
     if (web) outTabs.push(['preview', '👁 Página']);
@@ -302,7 +321,7 @@
     $app.innerHTML = `<section class="ws">
       <aside class="ws-left">
         <div class="ws-nav">
-          <button class="back" id="back">← Fases</button>
+          <button class="back" id="back">← ${exam ? 'Início' : 'Fases'}</button>
           <span class="muted small">${esc(t.title.split('·')[1] || '')} · ${idx + 1}/${t.order.length}</span>
         </div>
         <div class="ws-title">
@@ -310,7 +329,7 @@
           <div><h1>${esc(p.title)}</h1><p>${esc(p.subtitle)}</p>
           <span class="kind kind-${p.kind}">${KIND_LABEL[p.kind]}</span> <span class="lvl">${'●'.repeat(p.level)}<span>${'●'.repeat(5 - p.level)}</span></span> ${st && st.done ? '<span class="donechip">✔ concluída</span>' : ''}</div>
         </div>
-        <div class="ws-scroll">
+        ${exam ? examPanelHtml(p) : `<div class="ws-scroll">
           <h3>🎯 Sua missão</h3>
           <div class="task">${fmt(p.task)}</div>
           ${p.example ? '<div class="example">' + (p.example.input ? '<div><small>Entrada</small><pre>' + esc(p.example.input) + '</pre></div>' : '') + '<div><small>Saída esperada</small><pre>' + esc(p.example.output) + '</pre></div></div>' : ''}
@@ -321,7 +340,7 @@
           <button class="btn btn-ghost btn-sm" id="hintBtn">Mostrar dica 1 de ${p.hints.length}</button>
           <button class="btn btn-ghost btn-sm" id="solBtn">👀 Ver solução</button>
           ${needsJava && !Server.online ? '<div class="warnbox small"><b>Servidor Java offline.</b> Rode <code>java JavaQuest.java</code> nesta pasta e abra <code>http://localhost:5517</code> para compilar e testar.</div>' : ''}
-        </div>
+        </div>`}
       </aside>
       <div class="ws-main">
         <div class="ed-bar">
@@ -329,7 +348,9 @@
           <div class="ed-actions">
             <button class="btn btn-ghost btn-sm" id="resetBtn" title="Voltar ao código inicial">↺</button>
             ${p.kind === 'java' || p.kind === 'spring' || p.kind === 'sql' ? '<button class="btn btn-run btn-sm" id="runBtn" title="Ctrl+\'">▶ Executar</button>' : ''}
+            ${exam ? '<span class="timer" id="timer">⏱ --:--</span>' : ''}
             <button class="btn btn-primary btn-sm" id="testBtn" title="Ctrl+Enter">✔ Testar <kbd>Ctrl+Enter</kbd></button>
+            ${exam ? '<button class="btn btn-deliver btn-sm" id="deliverBtn" title="Corrige e dá a nota">📤 Entregar</button>' : ''}
           </div>
         </div>
         <div class="ed-split ${isTree(p) ? 'tree' : ''}">
@@ -365,7 +386,9 @@
 
     // botões
     $app.querySelector('#back').addEventListener('click', renderHome);
-    $app.querySelector('#testBtn').addEventListener('click', runTests);
+    $app.querySelector('#testBtn').addEventListener('click', () => runTests(false));
+    const db = $app.querySelector('#deliverBtn');
+    if (db) db.addEventListener('click', () => { if (confirm('Entregar a prova? Ela será corrigida e a nota registrada.')) runTests(true); });
     const rb = $app.querySelector('#runBtn'); if (rb) rb.addEventListener('click', runCode);
     $app.querySelector('#resetBtn').addEventListener('click', () => {
       if (!confirm('Restaurar o código inicial de TODOS os arquivos desta fase? Seu código será perdido.')) return;
@@ -375,14 +398,16 @@
       if (web) livePreview();
     });
     const hb = $app.querySelector('#hintBtn');
-    hb.addEventListener('click', () => {
+    if (hb) hb.addEventListener('click', () => {
       if (Workspace.usedHint >= p.hints.length) return;
       $app.querySelector('#hints').insertAdjacentHTML('beforeend', '<div class="hint">' + fmt(p.hints[Workspace.usedHint]) + '</div>');
       Workspace.usedHint++;
       if (Workspace.usedHint >= p.hints.length) { hb.disabled = true; hb.textContent = 'Sem mais dicas'; }
       else hb.textContent = 'Mostrar dica ' + (Workspace.usedHint + 1) + ' de ' + p.hints.length;
     });
-    $app.querySelector('#solBtn').addEventListener('click', showSolution);
+    const sb = $app.querySelector('#solBtn');
+    if (sb) sb.addEventListener('click', showSolution);
+    if (exam) setupExamPanel(p);
 
     if (web) { setupIframeListener(); livePreview(); }
     if (p.kind === 'sql') SQL.showTable(p);
@@ -578,9 +603,10 @@
     } finally { setBusy(false); }
   }
 
-  async function runTests() {
+  async function runTests(deliver) {
     const p = Workspace.p;
     if (Workspace.busy) return;
+    Workspace.deliver = !!deliver && !!p.exam;
     if (['html', 'css', 'js'].includes(p.kind)) return runWebTests();
     if (p.kind === 'sql') return SQL.run(p, true);
     if (!requireServer()) return;
@@ -594,6 +620,7 @@
       if (r.stage === 'compile') {
         showCompileErrors(r.errors);
         tl.innerHTML = '<p class="c-err">O código não compila — veja a aba 🖥 Saída.</p>';
+        if (Workspace.deliver) finishExam(p, null);
         return;
       }
       clearErrors();
@@ -627,7 +654,139 @@
       results.map((x) => '<div class="tr ' + (x.ok ? 'ok' : 'bad') + '"><i>' + (x.ok ? '✔' : '✘') + '</i><div><b>' + esc(x.name) + '</b>' + (x.msg ? '<pre>' + esc(x.msg) + '</pre>' : '') + '</div></div>').join('');
     showOut('tests');
     setStatus(all ? '<span class="ok">✔ todos os testes passaram</span>' : '<span class="bad">' + (total - n) + ' falhando</span>');
+    if (Workspace.p.exam) {
+      const sc = scoreExam(Workspace.p, results);
+      tl.insertAdjacentHTML('afterbegin', scoreHtml(Workspace.p, sc, Workspace.deliver));
+      if (Workspace.deliver) finishExam(Workspace.p, sc);
+      return;
+    }
     if (all) phaseCleared();
+  }
+
+  /* =========================================================
+     SIMULADOS DE PROVA
+     ========================================================= */
+  const fmtNota = (n) => n.toFixed(1).replace('.', ',');
+  const notaClass = (n) => (n >= 7 ? 'n-ok' : n >= 5 ? 'n-mid' : 'n-bad');
+  function examState(id) { S.exams = S.exams || {}; return (S.exams[id] = S.exams[id] || {}); }
+
+  function startExamAttempt(p) {
+    const e = examState(p.id);
+    if (!e.start || e.delivered) {
+      e.start = Date.now(); e.delivered = false; e.autoDelivered = false;
+      save();
+    }
+  }
+
+  function examPanelHtml(p) {
+    const x = p.exam;
+    const e = examState(p.id);
+    const total = x.itens.reduce((a, i) => a + i.pts, 0);
+    return `<div class="ws-scroll prova">
+      <div class="prova-head">
+        <div><b>Laboratório de Programação — Simulado</b><small>Treino no formato da P1 · Java</small></div>
+        <div class="prova-meta"><span>Duração: <b>${x.duracao} min</b></span><span>Valor: <b>${fmtNota(total)}</b></span><span>Consulta: <b>restrita</b> <small class="muted">(aqui a cola está liberada para treino)</small></span></div>
+      </div>
+      <div class="prova-txt">${fmt(x.cenario)}</div>
+      <h3>Atributos obrigatórios da classe <code>${esc(x.classe)}</code></h3>
+      <table class="attrs"><tr><th>Atributo</th><th>Tipo</th><th>Descrição</th><th>Exemplo</th></tr>
+        ${x.attrs.map((a) => '<tr><td><code>' + esc(a[0]) + '</code></td><td><code>' + esc(a[1]) + '</code></td><td>' + esc(a[2]) + '</td><td><code>' + esc(a[3]) + '</code></td></tr>').join('')}
+      </table>
+      ${x.obs ? '<p class="small">' + fmt(x.obs) + '</p>' : ''}
+      <h3>Fonte de dados</h3>
+      <p class="small">${fmt(x.dados)}</p>
+      <h3>Questões</h3>
+      <p class="small muted">Complete os arquivos do editor. As partes já prontas (como <code>/health</code>) servem de exemplo.</p>
+      ${x.itens.map((i) => '<div class="q-item" data-item="' + i.id + '"><span class="q-badge">' + i.id + ') <small>' + fmtNota(i.pts) + ' pt</small></span><div>' + fmt(i.txt) + '</div><span class="q-score"></span></div>').join('')}
+      <h3>Exemplo de uso</h3>
+      <pre class="code ex-uso">${esc(x.exemplo)}</pre>
+      <div class="prova-foot">
+        ${e.best != null ? '<span>Melhor nota: <b class="' + notaClass(e.best) + '">' + fmtNota(e.best) + '</b> · tentativas: ' + (e.tries || 0) + '</span>' : '<span class="muted">Nenhuma entrega ainda.</span>'}
+        <div>
+          <button class="btn btn-ghost btn-sm" id="gabBtn" ${e.tries ? '' : 'disabled title="Disponível depois da primeira entrega"'}>📋 Gabarito</button>
+          <button class="btn btn-ghost btn-sm" id="restartBtn">↺ Recomeçar prova</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function setupExamPanel(p) {
+    const e = examState(p.id);
+    const gb = $app.querySelector('#gabBtn');
+    gb.addEventListener('click', () => { Workspace.sawSolution = true; showSolution(true); });
+    $app.querySelector('#restartBtn').addEventListener('click', () => {
+      if (!confirm('Recomeçar a prova? O cronômetro volta para ' + p.exam.duracao + ':00 e o código volta ao inicial.')) return;
+      localStorage.removeItem(codeKey(p.id));
+      e.start = null; save();
+      openPhase(p.id);
+    });
+    const tick = () => {
+      const el = $app.querySelector('#timer');
+      if (!el) return;
+      const st = examState(p.id);
+      if (st.delivered) { el.textContent = '✔ entregue'; el.className = 'timer done'; return; }
+      const left = p.exam.duracao * 60 * 1000 - (Date.now() - st.start);
+      const abs = Math.abs(left);
+      const mm = Math.floor(abs / 60000), ss = Math.floor((abs % 60000) / 1000);
+      el.textContent = (left < 0 ? '⏱ +' : '⏱ ') + mm + ':' + String(ss).padStart(2, '0');
+      el.className = 'timer' + (left < 0 ? ' over' : left < 5 * 60 * 1000 ? ' warn' : '');
+      if (left <= 0 && !st.autoDelivered && !Workspace.busy) {
+        st.autoDelivered = true; save();
+        toast('⏰ Tempo esgotado! Entregando a prova…', 3500);
+        runTests(true);
+      }
+    };
+    tick();
+    Workspace.timer = setInterval(tick, 1000);
+  }
+
+  function scoreExam(p, results) {
+    const itens = p.exam.itens.map((i) => {
+      const ts = results.filter((r) => r.name.startsWith('[' + i.id + ']'));
+      const ok = ts.length > 0 && ts.every((r) => r.ok);
+      const passed = ts.filter((r) => r.ok).length;
+      return { id: i.id, pts: i.pts, got: ok ? i.pts : 0, passed, total: ts.length };
+    });
+    const broken = results.some((r) => r.name === 'Execução completa' && !r.ok);
+    const nota = broken ? itens.reduce((a, i) => a + i.got, 0) : itens.reduce((a, i) => a + i.got, 0);
+    return { itens, nota: Math.round(nota * 10) / 10 };
+  }
+
+  function scoreHtml(p, sc, final) {
+    // marca os itens no enunciado
+    sc.itens.forEach((i) => {
+      const el = $app.querySelector('.q-item[data-item="' + i.id + '"] .q-score');
+      if (el) { el.textContent = fmtNota(i.got) + '/' + fmtNota(i.pts); el.className = 'q-score ' + (i.got ? 'ok' : 'bad'); }
+    });
+    return `<div class="score ${final ? 'final' : ''}">
+      <div class="score-nota"><small>${final ? 'Nota da entrega' : 'Nota parcial (se entregasse agora)'}</small><b class="${notaClass(sc.nota)}">${fmtNota(sc.nota)}</b><small>de 10,0</small></div>
+      <table class="score-tab"><tr><th>Item</th><th>Testes</th><th>Pontos</th></tr>
+        ${sc.itens.map((i) => '<tr class="' + (i.got ? 'ok' : 'bad') + '"><td>' + i.id + ')</td><td>' + i.passed + '/' + i.total + '</td><td>' + fmtNota(i.got) + ' / ' + fmtNota(i.pts) + '</td></tr>').join('')}
+      </table>
+      ${final ? '<div class="score-msg">' + (sc.nota >= 10 ? '🏆 Gabaritou!' : sc.nota >= 7 ? '👏 Aprovado no simulado.' : 'Revise os itens em vermelho, veja o gabarito e tente de novo.') + '<br><small class="muted">O gabarito foi liberado no painel da esquerda.</small></div>' : ''}
+    </div>`;
+  }
+
+  function finishExam(p, sc) {
+    const e = examState(p.id);
+    const nota = sc ? sc.nota : 0;
+    const usedMin = Math.round((Date.now() - e.start) / 60000);
+    e.delivered = true;
+    e.tries = (e.tries || 0) + 1;
+    e.last = nota;
+    e.best = Math.max(e.best == null ? 0 : e.best, nota);
+    e.history = (e.history || []).concat([{ nota, min: usedMin, em: new Date().toISOString().slice(0, 16) }]).slice(-10);
+    save();
+    if (!sc) {
+      $app.querySelector('#testList').insertAdjacentHTML('afterbegin', '<div class="score final"><div class="score-nota"><small>Nota da entrega</small><b class="n-bad">0,0</b><small>de 10,0</small></div><div class="score-msg">O código entregue <b>não compila</b>, então nenhum item pôde ser corrigido. Na prova em papel o professor ainda poderia dar pontos parciais — mas aqui vale a regra do compilador! 🙂</div></div>');
+    }
+    const gb = $app.querySelector('#gabBtn');
+    if (gb) { gb.disabled = false; gb.title = ''; }
+    const foot = $app.querySelector('.prova-foot > span');
+    if (foot) foot.innerHTML = 'Melhor nota: <b class="' + notaClass(e.best) + '">' + fmtNota(e.best) + '</b> · tentativas: ' + e.tries;
+    toast('📤 Prova entregue: nota ' + fmtNota(nota) + (usedMin ? ' em ' + usedMin + ' min' : ''), 4000);
+    if (nota >= 10) confetti();
+    Workspace.deliver = false;
   }
 
   /* ---------------- conclusão de fase ---------------- */
@@ -653,9 +812,9 @@
     if (first) confetti();
   }
 
-  function showSolution() {
+  function showSolution(isGabarito) {
     const p = Workspace.p;
-    if (!confirm('Ver a solução? Se você concluir a fase depois disso, ganha só 1 estrela.\n\nA solução abre numa janela separada; seu código não é alterado.')) return;
+    if (isGabarito !== true && !confirm('Ver a solução? Se você concluir a fase depois disso, ganha só 1 estrela.\n\nA solução abre numa janela separada; seu código não é alterado.')) return;
     Workspace.sawSolution = true;
     const lang = LANG[p.kind];
     const m = document.createElement('div');
@@ -879,7 +1038,7 @@
     }
     if (e.altKey && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); Cola.toggle(); return; }
     if (!Workspace.p) return;
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runTests(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runTests(false); }
     else if ((e.ctrlKey || e.metaKey) && e.key === "'") { e.preventDefault(); runCode(); }
     else if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); toast('💾 Seu código é salvo automaticamente neste navegador.'); }
   });
